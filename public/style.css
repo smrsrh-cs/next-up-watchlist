@@ -1,0 +1,395 @@
+/* ===================================================
+   Next-Up: Movie & TV Show Watchlist Tracker
+   Pure CSS3 - Clean Sleek Dark Theme (No AI Elements)
+   =================================================== */
+
+:root {
+  --bg-dark: #0f172a;        /* Slate 900 */
+  --bg-card: #1e293b;        /* Slate 800 */
+  --bg-input: #334155;       /* Slate 700 */
+  --bg-hover: #475569;
+
+  --accent-red: #e11d48;     /* Movie Crimson */
+  --accent-red-hover: #be123c;
+  --accent-blue: #38bdf8;
+  --accent-amber: #f59e0b;
+  --accent-green: #10b981;
+
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+
+  --border-color: rgba(255, 255, 255, 0.1);
+  --border-radius: 10px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  min-height: 100vh;
+  padding: 2.5rem 1rem;
+}
+
+.app-container {
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+/* ================= HEADER ================= */
+.app-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.logo-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.logo-icon {
+  font-size: 2rem;
+}
+
+.app-header h1 {
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: #ffffff;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+/* ================= ADD CARD FORM ================= */
+.form-section {
+  margin-bottom: 2rem;
+}
+
+.add-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 1.25rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.add-card h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #cbd5e1;
+}
+
+.form-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.form-row:last-child {
+  margin-bottom: 0;
+}
+
+input[type="text"],
+input[type="number"],
+select {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+select:focus {
+  border-color: var(--accent-red);
+}
+
+#titleInput {
+  flex: 1;
+}
+
+#typeInput {
+  cursor: pointer;
+}
+
+.episode-row {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  display: flex;
+  gap: 1.5rem;
+}
+
+.ep-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.ep-field input {
+  width: 60px;
+  text-align: center;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: space-between;
+}
+
+#statusInput {
+  flex: 1;
+}
+
+.btn-primary {
+  background: var(--accent-red);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.btn-primary:hover {
+  background: var(--accent-red-hover);
+  transform: translateY(-1px);
+}
+
+/* ================= FILTER TABS ================= */
+.filter-section {
+  margin-bottom: 1.25rem;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.tab-btn {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+  padding: 0.45rem 0.85rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.tab-btn:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.tab-btn.active {
+  background: var(--accent-red);
+  color: white;
+  border-color: var(--accent-red);
+}
+
+/* ================= WATCHLIST LIST ================= */
+.watchlist-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.item-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 1rem 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  transition: border-color 0.15s;
+}
+
+.item-card:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1;
+}
+
+.item-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.item-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.item-tag {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+.tag-movie {
+  background: rgba(56, 189, 248, 0.15);
+  color: var(--accent-blue);
+}
+
+.tag-show {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--accent-amber);
+}
+
+/* Episode tracker inline */
+.item-episodes {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.ep-count {
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.ep-btn {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: white;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.ep-btn:hover {
+  background: var(--accent-red);
+}
+
+.ep-bar {
+  width: 80px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.ep-bar-fill {
+  height: 100%;
+  background: var(--accent-red);
+  border-radius: 9999px;
+}
+
+/* Card Controls */
+.item-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-dropdown {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.status-dropdown.plan { border-left: 3px solid var(--accent-blue); }
+.status-dropdown.watching { border-left: 3px solid var(--accent-amber); }
+.status-dropdown.completed { border-left: 3px solid var(--accent-green); }
+
+.delete-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0.35rem;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+
+.delete-btn:hover {
+  color: #ef4444;
+}
+
+/* ================= EMPTY STATE & FOOTER ================= */
+.empty-state {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  background: var(--bg-card);
+  border-radius: var(--border-radius);
+  border: 1px dashed var(--border-color);
+}
+
+.app-footer {
+  text-align: center;
+  margin-top: 3rem;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 600px) {
+  .form-row {
+    flex-direction: column;
+  }
+  .episode-row {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .item-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .item-controls {
+    width: 100%;
+    justify-content: space-between;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+  }
+}

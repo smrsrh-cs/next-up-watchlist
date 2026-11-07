@@ -1,0 +1,14 @@
+{
+  "name": "next-up-watchlist",
+  "version": "1.0.0",
+  "description": "Next-Up: A sleek, dark-themed tracker for movies and TV shows you want to watch",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  }
+}
