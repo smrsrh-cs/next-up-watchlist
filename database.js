@@ -1,11 +1,14 @@
-// database.js - Simple SQLite database for Next-Up mini project
+// SQLite database setup and sample data.
 const { DatabaseSync } = require('node:sqlite');
 const path = require('node:path');
 
 const dbPath = path.join(__dirname, 'watchlist.db');
 const db = new DatabaseSync(dbPath);
 
-// Initialize simple table
+// Seed only when first creating the table; an intentionally emptied list stays empty.
+const existingTable = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'watchlist'").get();
+
+// Create the watchlist table
 db.exec(`
   CREATE TABLE IF NOT EXISTS watchlist (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -19,9 +22,8 @@ db.exec(`
   );
 `);
 
-// Seed with a few clean items if empty
-const count = db.prepare('SELECT COUNT(*) as count FROM watchlist').get().count;
-if (count === 0) {
+// Seed a new database with sample titles.
+if (!existingTable) {
   const insert = db.prepare(`
     INSERT INTO watchlist (title, type, current_ep, total_ep, status, ai_tag)
     VALUES (?, ?, ?, ?, ?, ?)

@@ -1,126 +1,123 @@
-// server.js - Simple Express backend for Next-Up Watchlist Tracker
+// Express backend for Next-Up Watchlist Tracker.
 const express = require('express');
 const cors = require('cors');
 const path = require('node:path');
 const db = require('./database.js');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT || 3000);
+const statuses = new Set(['plan', 'watching', 'completed']);
 
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// GET: Fetch all watchlist items
+function validBody(body) {
+  return body !== null && typeof body === 'object' && !Array.isArray(body);
+}
+
+function badRequest(res, error) {
+  return res.status(400).json({ success: false, error });
+}
+
 app.get('/api/watchlist', (req, res) => {
-  try {
-    const rows = db.prepare('SELECT * FROM watchlist ORDER BY created_at DESC').all();
-    const items = rows.map(r => ({
-      ...r,
-      current_ep: r.current_episode !== undefined ? r.current_episode : (r.current_ep || 0),
-      total_ep: r.total_episodes !== undefined ? r.total_episodes : (r.total_ep || 1)
-    }));
-    res.json({ success: true, data: items });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  const items = db.prepare('SELECT * FROM watchlist ORDER BY created_at DESC, id DESC').all();
+  res.json({ success: true, data: items });
 });
 
-// POST: Add new movie or TV show
 app.post('/api/watchlist', (req, res) => {
-  try {
-    const { title, type = 'movie', current_ep, current_episode, total_ep, total_episodes, status = 'plan' } = req.body;
-    if (!title || !title.trim()) {
-      return res.status(400).json({ success: false, error: 'Title is required' });
-    }
+  if (!validBody(req.body)) return badRequest(res, 'A JSON object is required');
+  const { title, type = 'movie', status = 'plan' } = req.body;
+  if (typeof title !== 'string' || !title.trim()) return badRequest(res, 'Title is required');
+  if (!['movie', 'show'].includes(type)) return badRequest(res, 'Type must be movie or show');
+  if (!statuses.has(status)) return badRequest(res, 'Invalid status');
 
-    const curEp = parseInt(current_ep !== undefined ? current_ep : current_episode) || 0;
-    const totEp = parseInt(total_ep !== undefined ? total_ep : total_episodes) || (type === 'movie' ? 1 : 10);
-
-    const stmt = db.prepare(`
-      INSERT INTO watchlist (title, type, current_episode, total_episodes, status)
-      VALUES (?, ?, ?, ?, ?)
-    `);
-
-    const result = stmt.run(title.trim(), type, curEp, totEp, status);
-    const newItem = db.prepare('SELECT * FROM watchlist WHERE id = ?').get(result.lastInsertRowid);
-    newItem.current_ep = newItem.current_episode;
-    newItem.total_ep = newItem.total_episodes;
-
-    res.status(201).json({ success: true, data: newItem });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+  let currentEp = req.body.current_ep ?? req.body.current_episode ?? 0;
+  const totalEp = req.body.total_ep ?? req.body.total_episodes ?? (type === 'movie' ? 1 : 10);
+  if (!Number.isSafeInteger(totalEp) || totalEp < 1 || (type === 'movie' && totalEp !== 1)) {
+    return badRequest(res, 'Total episodes must be a positive integer (1 for movies)');
   }
+  if (!Number.isSafeInteger(currentEp) || currentEp < 0 || currentEp > totalEp) {
+    return badRequest(res, 'Current episode must be an integer between 0 and total episodes');
+  }
+
+  let nextStatus = status;
+  if (status === 'completed') currentEp = totalEp;
+  else if (currentEp === totalEp) nextStatus = 'completed';
+  else if (currentEp > 0 && status === 'plan') nextStatus = 'watching';
+
+  const result = db.prepare(`
+    INSERT INTO watchlist (title, type, current_ep, total_ep, status)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(title.trim(), type, currentEp, totalEp, nextStatus);
+  const item = db.prepare('SELECT * FROM watchlist WHERE id = ?').get(result.lastInsertRowid);
+  res.status(201).json({ success: true, data: item });
 });
 
-// PATCH: Update episode progress or status
 app.patch('/api/watchlist/:id', (req, res) => {
-  try {
-    const { id } = req.params;
-    const { current_ep, current_episode, status } = req.body;
-    const item = db.prepare('SELECT * FROM watchlist WHERE id = ?').get(id);
-
-    if (!item) {
-      return res.status(404).json({ success: false, error: 'Item not found' });
-    }
-
-    let nextEp = item.current_episode || 0;
-    let nextStatus = item.status;
-
-    const requestedEp = current_ep !== undefined ? current_ep : current_episode;
-    if (typeof requestedEp === 'number') {
-      const maxEp = item.total_episodes || 1;
-      nextEp = Math.max(0, Math.min(requestedEp, maxEp));
-      if (nextEp >= maxEp && maxEp > 0) {
-        nextStatus = 'completed';
-      } else if (nextEp > 0 && nextStatus === 'plan') {
-        nextStatus = 'watching';
-      }
-    }
-
-    if (status) {
-      nextStatus = status;
-      if (status === 'completed') nextEp = item.total_episodes || 1;
-    }
-
-    db.prepare(`
-      UPDATE watchlist SET current_episode = ?, status = ?, updated_at = datetime('now') WHERE id = ?
-    `).run(nextEp, nextStatus, id);
-
-    const updated = db.prepare('SELECT * FROM watchlist WHERE id = ?').get(id);
-    updated.current_ep = updated.current_episode;
-    updated.total_ep = updated.total_episodes;
-
-    res.json({ success: true, data: updated });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+  const item = db.prepare('SELECT * FROM watchlist WHERE id = ?').get(req.params.id);
+  if (!item) return res.status(404).json({ success: false, error: 'Item not found' });
+  if (!validBody(req.body)) return badRequest(res, 'A JSON object is required');
+  const { status } = req.body;
+  const requestedEp = req.body.current_ep ?? req.body.current_episode;
+  if (requestedEp === undefined && status === undefined) return badRequest(res, 'Provide an episode or status');
+  if (status !== undefined && !statuses.has(status)) return badRequest(res, 'Invalid status');
+  if (requestedEp !== undefined && !Number.isSafeInteger(requestedEp)) {
+    return badRequest(res, 'Current episode must be an integer');
   }
+
+  let nextEp = item.current_ep;
+  let nextStatus = item.status;
+  if (requestedEp !== undefined) {
+    nextEp = Math.max(0, Math.min(requestedEp, item.total_ep));
+    if (nextEp === item.total_ep) nextStatus = 'completed';
+    else if (nextStatus === 'completed' || (nextEp > 0 && nextStatus === 'plan')) nextStatus = 'watching';
+  }
+  if (status !== undefined) {
+    nextStatus = status;
+    if (status === 'completed') nextEp = item.total_ep;
+    else if (status === 'plan') nextEp = 0;
+    else if (nextEp === item.total_ep) nextEp = Math.max(0, item.total_ep - 1);
+  }
+
+  db.prepare('UPDATE watchlist SET current_ep = ?, status = ? WHERE id = ?').run(nextEp, nextStatus, item.id);
+  res.json({ success: true, data: db.prepare('SELECT * FROM watchlist WHERE id = ?').get(item.id) });
 });
 
-// DELETE: Remove item from watchlist
 app.delete('/api/watchlist/:id', (req, res) => {
-  try {
-    db.prepare('DELETE FROM watchlist WHERE id = ?').run(req.params.id);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  const result = db.prepare('DELETE FROM watchlist WHERE id = ?').run(req.params.id);
+  if (!result.changes) return res.status(404).json({ success: false, error: 'Item not found' });
+  res.json({ success: true });
 });
 
-// Start server with port fallback if port is in use
+// Return JSON for API errors so the browser can display the failure.
+app.use((err, req, res, next) => {
+  if (err.type === 'entity.parse.failed' || err.type === 'entity.too.large') {
+    return res.status(err.status).json({ success: false, error: 'Invalid JSON request body' });
+  }
+  console.error('Request failed:', err);
+  res.status(500).json({ success: false, error: 'Unable to save or load the watchlist. Please try again.' });
+});
+
+// PORT is numeric: environment variables otherwise turn fallback 3000 into "30001".
 function start(port) {
   const server = app.listen(port, () => {
-    console.log(`\n===============================================`);
-    console.log(`🎬 Next-Up Watchlist Tracker running at http://localhost:${port}`);
-    console.log(`===============================================\n`);
+    console.log(`Next-Up Watchlist Tracker running at http://localhost:${server.address().port}`);
   });
-
-  server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
+  server.on('error', err => {
+    if (err.code === 'EADDRINUSE' && port < 65535) {
       console.warn(`Port ${port} in use, trying ${port + 1}...`);
       start(port + 1);
+    } else {
+      console.error(`Unable to start server: ${err.message}`);
+      process.exitCode = 1;
     }
   });
 }
 
-start(PORT);
+if (!Number.isInteger(PORT) || PORT < 0 || PORT > 65535) {
+  console.error('PORT must be a number between 0 and 65535');
+  process.exitCode = 1;
+} else {
+  start(PORT);
+}

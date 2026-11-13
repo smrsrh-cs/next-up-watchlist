@@ -1,6 +1,6 @@
 /* ===================================================
    Next-Up: Movie & TV Show Watchlist Tracker
-   Pure CSS3 - Clean Sleek Dark Theme (No AI Elements)
+   Watchlist styles
    =================================================== */
 
 :root {
@@ -56,9 +56,7 @@ body {
   margin-bottom: 0.4rem;
 }
 
-.logo-icon {
-  font-size: 2rem;
-}
+
 
 .app-header h1 {
   font-size: 2.2rem;
@@ -392,4 +390,21 @@ select:focus {
     padding-top: 0.5rem;
     border-top: 1px solid rgba(255, 255, 255, 0.05);
   }
+}
+
+/* Keep long titles and small screens inside the card. */
+#titleInput, .item-info { min-width: 0; }
+.item-title { overflow-wrap: anywhere; }
+.item-title-row, .item-episodes { flex-wrap: wrap; }
+.item-tag { white-space: nowrap; }
+button:disabled { opacity: 0.45; cursor: default; transform: none; }
+.error-notice { margin-bottom: 1rem; }
+#errorMessage { color: #fda4af; margin-bottom: 0.5rem; }
+#retryButton {
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
 }

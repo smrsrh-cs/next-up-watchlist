@@ -24,18 +24,63 @@ const countShow = document.getElementById('countShow');
 const countWatching = document.getElementById('countWatching');
 const countCompleted = document.getElementById('countCompleted');
 
+const errorMessage = document.getElementById('errorMessage');
+let saving = false;
+
+function showError(message) {
+  errorMessage.textContent = message;
+  errorMessage.hidden = false;
+}
+
+async function apiRequest(url, options) {
+  let res;
+  try {
+    res = await fetch(url, options);
+  } catch {
+    throw new Error('Cannot reach the server. Check that npm start is running, then retry.');
+  }
+  const result = await res.json();
+  if (!res.ok || !result.success) throw new Error(result.error || 'The request failed. Please retry.');
+  return result;
+}
+
 // 1. Fetch Watchlist from Backend API
 async function loadWatchlist() {
   try {
-    const res = await fetch('/api/watchlist');
-    const data = await res.json();
-    if (data.success) {
-      items = data.data;
-      renderItems();
-      updateTabCounts();
-    }
+    const result = await apiRequest('/api/watchlist');
+    items = result.data;
+    renderItems();
+    updateTabCounts();
+    errorMessage.hidden = true;
   } catch (err) {
-    console.error('Error loading watchlist:', err);
+    showError(err.message);
+  }
+}
+
+document.getElementById('retryButton').addEventListener('click', loadWatchlist);
+
+// Prevent duplicate submissions and stale episode changes while a save is pending.
+async function saveChange(url, method, body) {
+  if (saving) return false;
+  saving = true;
+  const controls = document.querySelectorAll('#addForm input, #addForm select, #addForm button, .item-controls select, .item-controls button, .ep-btn');
+  const previouslyDisabled = Array.from(controls, control => control.disabled);
+  controls.forEach(control => { control.disabled = true; });
+  try {
+    await apiRequest(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) })
+    });
+    await loadWatchlist();
+    return true;
+  } catch (err) {
+    renderItems();
+    showError(err.message);
+    return false;
+  } finally {
+    controls.forEach((control, index) => { control.disabled = previouslyDisabled[index]; });
+    saving = false;
   }
 }
 
@@ -70,15 +115,15 @@ function renderItems() {
       <div class="item-info">
         <div class="item-title-row">
           <span class="item-title">${escapeHtml(item.title)}</span>
-          <span class="item-tag ${isShow ? 'tag-show' : 'tag-movie'}">${isShow ? '📺 TV Show' : '🎬 Movie'}</span>
+          <span class="item-tag ${isShow ? 'tag-show' : 'tag-movie'}">${isShow ? 'TV Show' : 'Movie'}</span>
         </div>
 
         ${isShow ? `
           <div class="item-episodes">
             <span>Episode:</span>
             <span class="ep-count">${item.current_ep} / ${item.total_ep}</span>
-            <button class="ep-btn" data-action="dec" title="Previous Episode">-</button>
-            <button class="ep-btn" data-action="inc" title="Next Episode">+</button>
+            <button class="ep-btn" data-action="dec" title="Previous Episode" ${item.current_ep <= 0 ? 'disabled' : ''}>-</button>
+            <button class="ep-btn" data-action="inc" title="Next Episode" ${item.current_ep >= item.total_ep ? 'disabled' : ''}>+</button>
             <div class="ep-bar">
               <div class="ep-bar-fill" style="width: ${percent}%;"></div>
             </div>
@@ -87,12 +132,12 @@ function renderItems() {
       </div>
 
       <div class="item-controls">
-        <select class="status-dropdown ${item.status}" data-action="status">
-          <option value="plan" ${item.status === 'plan' ? 'selected' : ''}>📌 Plan</option>
-          <option value="watching" ${item.status === 'watching' ? 'selected' : ''}>🍿 Watching</option>
-          <option value="completed" ${item.status === 'completed' ? 'selected' : ''}>✅ Completed</option>
+        <select class="status-dropdown ${item.status}" data-action="status" aria-label="Status for ${escapeHtml(item.title)}">
+          <option value="plan" ${item.status === 'plan' ? 'selected' : ''}>Plan</option>
+          <option value="watching" ${item.status === 'watching' ? 'selected' : ''}>Watching</option>
+          <option value="completed" ${item.status === 'completed' ? 'selected' : ''}>Completed</option>
         </select>
-        <button class="delete-btn" data-action="delete" title="Delete title">🗑️</button>
+        <button class="delete-btn" data-action="delete" title="Delete title">Delete</button>
       </div>
     `;
 
@@ -128,70 +173,41 @@ addForm.addEventListener('submit', async (e) => {
 
   const type = typeInput.value;
   const status = statusInput.value;
-  const current_ep = type === 'show' ? parseInt(currentEpInput.value) || 0 : 0;
-  const total_ep = type === 'show' ? parseInt(totalEpInput.value) || 10 : 1;
+  const current_ep = type === 'show' ? Number(currentEpInput.value) : 0;
+  const total_ep = type === 'show' ? Number(totalEpInput.value) : 1;
 
-  try {
-    const res = await fetch('/api/watchlist', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, type, current_ep, total_ep, status })
-    });
-    const result = await res.json();
-    if (result.success) {
-      titleInput.value = '';
-      currentEpInput.value = '0';
-      await loadWatchlist();
-    }
-  } catch (err) {
-    console.error('Failed to add title:', err);
+  if (current_ep > total_ep) {
+    showError('Current episode cannot be greater than total episodes.');
+    return;
+  }
+  if (await saveChange('/api/watchlist', 'POST', { title, type, current_ep, total_ep, status })) {
+    titleInput.value = '';
+    currentEpInput.value = '0';
   }
 });
 
-// Toggle episode inputs when TV Show is selected
-typeInput.addEventListener('change', () => {
-  episodeRow.style.display = typeInput.value === 'show' ? 'flex' : 'none';
-});
+// Toggle episode inputs when TV Show is selected. Hidden movie fields must not block submission.
+function updateEpisodeInputs() {
+  const isShow = typeInput.value === 'show';
+  episodeRow.style.display = isShow ? 'flex' : 'none';
+  currentEpInput.disabled = !isShow;
+  totalEpInput.disabled = !isShow;
+  currentEpInput.required = isShow;
+  totalEpInput.required = isShow;
+}
+typeInput.addEventListener('change', updateEpisodeInputs);
+updateEpisodeInputs();
 
-// 4. Update Episode Progress
-async function updateProgress(id, newEp) {
-  try {
-    const res = await fetch(`/api/watchlist/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ current_ep: newEp })
-    });
-    const result = await res.json();
-    if (result.success) await loadWatchlist();
-  } catch (err) {
-    console.error(err);
-  }
+function updateProgress(id, newEp) {
+  return saveChange(`/api/watchlist/${id}`, 'PATCH', { current_ep: newEp });
 }
 
-// 5. Update Status
-async function updateStatus(id, status) {
-  try {
-    const res = await fetch(`/api/watchlist/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status })
-    });
-    const result = await res.json();
-    if (result.success) await loadWatchlist();
-  } catch (err) {
-    console.error(err);
-  }
+function updateStatus(id, status) {
+  return saveChange(`/api/watchlist/${id}`, 'PATCH', { status });
 }
 
-// 6. Delete Title
-async function deleteItem(id) {
-  try {
-    const res = await fetch(`/api/watchlist/${id}`, { method: 'DELETE' });
-    const result = await res.json();
-    if (result.success) await loadWatchlist();
-  } catch (err) {
-    console.error(err);
-  }
+function deleteItem(id) {
+  return saveChange(`/api/watchlist/${id}`, 'DELETE');
 }
 
 // 7. Filter Tabs Click Events

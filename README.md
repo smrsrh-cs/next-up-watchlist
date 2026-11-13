@@ -1,47 +1,102 @@
-# 🎬 Next-Up: Movie & TV Show Watchlist Tracker
+# Next-Up Watchlist
 
-A sleek, dark-themed personal watchlist tracker where you can easily log movies and TV shows you want to watch next and track episode progress.
+A movie and TV show watchlist built with HTML, CSS, JavaScript, Express, and SQLite.
 
-Built as a simple mini-project with **pure HTML, CSS, and Vanilla JavaScript** on the frontend and **Node.js with SQLite** on the backend.
+## Setup
 
----
+Install **Node.js 22.13.0 or newer**. The server uses the built-in `node:sqlite` module, which is unavailable in older Node.js versions. Check your version with `node --version`.
 
-## 🎯 Features
+Clone the repository and install dependencies:
 
-- **Simple & Sleek Dark UI**: Clean slate/charcoal dark theme. No clutter, no complex menus.
-- **Log Movies & TV Shows**: Quick input form right at the top to add titles.
-- **Episode Progress Tracking**: For TV shows, track your current episode (e.g. `Episode 4 / 10`) with `+` and `-` buttons that update in real time.
-- **Status Pipeline**: Switch status anytime between **📌 Plan to Watch**, **🍿 Watching**, and **✅ Completed**.
-- **Filter Tabs**: Instantly filter your list by *All*, *Movies*, *TV Shows*, *Watching*, or *Completed* with real-time count badges.
-- **Delete Titles**: Remove items from your list anytime with 1 click.
-- **Persistent Database**: Automatically saves your watchlist into SQLite (`watchlist.db`).
+```sh
+git clone https://github.com/smrsrh-cs/next-up-watchlist.git
+cd next-up-watchlist
+npm ci
+npm start
+```
 
----
+If you already have the project, open a terminal in its folder and run `npm ci`, then `npm start`.
 
-## 🏗️ System Architecture
+Open [http://localhost:3000](http://localhost:3000). If port 3000 is busy, the server tries the next port and prints the address. Keep the terminal running while using the app. Press Ctrl+C to stop it.
 
-The application follows a clean **3-Tier Client-Server Architecture**:
+Use the server address to open the app; opening `public/index.html` directly will not connect to the API.
+
+The server creates `watchlist.db` in the project folder on first startup and adds four sample titles. Your changes are saved between restarts. No API key, environment file, or separate database server is required.
+
+## Features
+
+- Add movies and TV shows.
+- Track episodes with the + and - buttons.
+- Set a title to Plan to Watch, Watching, or Completed.
+- Filter by type or status and see the count in each category.
+- Delete titles from the watchlist.
+
+Completing a title sets its progress to the total episode count. Moving it to Plan resets progress to zero. Finishing a show's last episode marks it Completed; reducing its progress changes it back to Watching.
+
+## Development
+
+Restart the server automatically when server files change:
+
+```sh
+npm run dev
+```
+
+Run the backend tests:
+
+```sh
+npm test
+```
+
+Tests cover the API, input validation, static files, port fallback, and database persistence. They use a temporary database and leave your watchlist unchanged.
+
+## Troubleshooting
+
+- **Cannot find module 'express':** run `npm ci` in the project folder.
+- **No such built-in module: node:sqlite:** install Node.js 22.13.0 or newer and reopen the terminal.
+- **Page cannot connect:** check that `npm start` is still running and use the address printed in the terminal. Click Refresh watchlist after restarting the server.
+
+## Project structure
+
+```text
+next-up-watchlist/
+├── public/
+│   ├── index.html          # Page layout
+│   ├── style.css           # Styles
+│   └── app.js              # UI events and API requests
+├── test/
+│   └── watchlist.test.js   # HTTP and persistence tests
+├── server.js              # Express routes and server startup
+├── database.js            # SQLite setup and sample data
+├── watchlist.db            # Created on first run; ignored by Git
+├── package.json
+├── package-lock.json
+└── README.md
+```
+
+## Architecture
+
+The browser sends requests to the Express API. The API reads and writes the SQLite database and returns JSON.
 
 ```mermaid
 flowchart TD
-    subgraph Client ["Frontend Layer (Browser)"]
-        UI["User Interface (HTML5 / CSS3)"]
-        State["Client Controller & DOM Engine (app.js)"]
-        Fetch["Fetch API (Async HTTP Calls)"]
+    subgraph Client ["Browser"]
+        UI["HTML and CSS"]
+        State["Page logic (app.js)"]
+        Fetch["Fetch API"]
         UI -->|"User Actions (Add, +/- Ep, Filter)"| State
-        State -->|"Reactive DOM Re-render"| UI
+        State -->|"Update page"| UI
         State -->|"REST API Requests"| Fetch
     end
 
-    subgraph Server ["Backend Layer (Node.js & Express)"]
+    subgraph Server ["Server (Node.js and Express)"]
         Router["Express Server (server.js)"]
-        Middleware["Middlewares (cors, express.json, express.static)"]
+        Middleware["Middleware"]
         Endpoints["REST API Endpoints (/api/watchlist)"]
         Router --> Middleware
         Middleware --> Endpoints
     end
 
-    subgraph Database ["Persistence Layer (SQLite)"]
+    subgraph Database ["Database (SQLite)"]
         Driver["node:sqlite Driver (database.js)"]
         DBFile[("watchlist.db (Relational Database)")]
         Driver <-->|"SQL Prepared Queries"| DBFile
@@ -51,7 +106,7 @@ flowchart TD
     Endpoints <-->|"Synchronous DB Operations"| Driver
 ```
 
-### 🔄 Data Flow Lifecycle
+### Request flow
 
 ```mermaid
 sequenceDiagram
@@ -64,51 +119,17 @@ sequenceDiagram
     User->>Browser: Open http://localhost:3000
     Browser->>Server: GET /
     Server-->>Browser: index.html, style.css, app.js
-    
+
     Browser->>Server: GET /api/watchlist
     Server->>DB: SELECT * FROM watchlist ORDER BY created_at DESC
     DB-->>Server: Return items array
     Server-->>Browser: JSON { success: true, data: [...] }
-    Browser-->>User: Render Cards & Live Count Badges
+    Browser-->>User: Display titles and counts
 
     User->>Browser: Click "+ Ep" on a TV Show
     Browser->>Server: PATCH /api/watchlist/:id (current_ep + 1)
-    Server->>DB: UPDATE watchlist SET current_episode = ?, status = ?
+    Server->>DB: UPDATE watchlist SET current_ep = ?, status = ?
     DB-->>Server: Record updated
     Server-->>Browser: JSON { success: true, data: updatedItem }
-    Browser-->>User: Update Card Progress Bar & Counts
-```
-
----
-
-## 🚀 How to Run
-
-1. Open PowerShell and navigate to the project directory:
-   ```powershell
-   cd "C:\Users\HP\OneDrive\Desktop\fsw"
-   ```
-
-2. Start the server:
-   ```powershell
-   node server.js
-   ```
-
-3. Open your browser:
-   👉 **[http://localhost:3000](http://localhost:3000)**
-
----
-
-## 📁 Project Structure
-
-```
-fsw/
-├── public/                # 100% Pure HTML, CSS, JavaScript frontend
-│   ├── index.html         # Clean, semantic layout (~80 lines)
-│   ├── style.css          # Sleek dark theme styling (~170 lines)
-│   └── app.js             # Vanilla JS for API calls & episode updates (~120 lines)
-├── server.js              # Clean Node.js Express backend (~95 lines)
-├── database.js            # SQLite database initialization
-├── watchlist.db           # Persistent SQLite database file
-├── package.json           # Dependencies (express, cors)
-└── README.md
+    Browser-->>User: Update progress and counts
 ```
